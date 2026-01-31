@@ -1,63 +1,326 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  FileText,
+  BarChart,
+  Settings,
+  HelpCircle,
+  LayoutDashboard,
+  FileUp,
+  FolderOpen,
+  BarChart3,
+  RefreshCw,
+  LogOut
+} from 'lucide-react';
+import { UploadManager } from '@/components/upload/UploadManager';
+import { DataTable, ExportControls, MetricsPanel, DocumentDetailModal } from '@/components/dashboard';
+import { DocumentWithRelations, UploadProgress, CostSummary } from '@/types';
+import Cookies from 'js-cookie';
+import { useRouter } from 'next/navigation';
+
+type TabType = 'dashboard' | 'upload' | 'documents' | 'metrics';
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [documents, setDocuments] = useState<DocumentWithRelations[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentWithRelations | null>(null);
+  const [stats, setStats] = useState<{
+    statusCounts: Record<string, number>;
+    costSummary?: CostSummary;
+  }>({ statusCounts: {} });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogout = () => {
+    Cookies.remove('auth_token');
+    router.push('/login');
+  };
+
+  const fetchDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/documents?limit=1000');
+      const result = await response.json();
+      
+      if (result.success) {
+        setDocuments(result.data);
+        setStats({
+          statusCounts: result.stats?.statusCounts || {},
+          costSummary: result.stats?.costSummary,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch documents:', error);
+    } finally {
+      setIsLoading(false);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  useEffect(() => {
+    if (activeTab === 'documents') {
+      const interval = setInterval(fetchDocuments, 30000); // Poll every 30s
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, fetchDocuments]);
+
+  const handleUploadComplete = useCallback((documentIds: string[]) => {
+    console.log('Upload complete:', documentIds);
+    fetchDocuments();
+    setTimeout(() => setActiveTab('documents'), 1000);
+  }, [fetchDocuments]);
+
+  const handleUpdateDocument = async (id: string, data: any) => {
+    const response = await fetch(`/api/documents?id=${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    
+    if (response.ok) {
+      fetchDocuments();
+    }
+  };
+
+  const handleReExtract = async (id: string, forceModel?: string) => {
+    await fetch('/api/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: id, forceModel, skipClassification: !!forceModel }),
+    });
+    fetchDocuments();
+  };
+
+  const totalDocuments = documents.length;
+  const completedDocuments = stats.statusCounts['COMPLETED'] || 0;
+  const failedDocuments = stats.statusCounts['FAILED'] || 0;
+  const pendingDocuments = totalDocuments - completedDocuments - failedDocuments;
+
+  const navItems = [
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'upload' as const, label: 'Upload', icon: FileUp },
+    { id: 'documents' as const, label: 'Documents', icon: FolderOpen },
+    { id: 'metrics' as const, label: 'Metrics', icon: BarChart3 },
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="app-layout">
+      {selectedDocument && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
+          <DocumentDetailModal 
+            document={selectedDocument} 
+            onClose={() => setSelectedDocument(null)}
+            onSave={handleUpdateDocument}
+            onReExtract={handleReExtract}
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      )}
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="logo">
+          <div className="logo-icon">
+            <FileText className="w-5 h-5" />
+          </div>
+          <span className="logo-text">DocuExtract</span>
+        </div>
+
+        <nav className="nav-section">
+          <div className="nav-section-title">Menu</div>
+          {navItems.map(item => (
+            <div
+              key={item.id}
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(item.id)}
+            >
+              <item.icon />
+              {item.label}
+            </div>
+          ))}
+        </nav>
+
+        <nav className="nav-section" style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
+          <div className="nav-item">
+            <Settings />
+            Settings
+          </div>
+          <div className="nav-item">
+            <HelpCircle />
+            Help & Support
+          </div>
+          <div 
+            className="nav-item"
+            onClick={handleLogout}
+            style={{ cursor: 'pointer', color: 'var(--accent-red)' }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <LogOut />
+            Logout
+          </div>
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {/* Header */}
+        <div className="header">
+          <div>
+            <h1 className="header-title">
+              {activeTab === 'dashboard' && 'Dashboard'}
+              {activeTab === 'upload' && 'Upload Documents'}
+              {activeTab === 'documents' && 'Documents'}
+              {activeTab === 'metrics' && 'Metrics & Analytics'}
+            </h1>
+            <p className="header-subtitle">
+              {activeTab === 'dashboard' && 'Overview of your document processing'}
+              {activeTab === 'upload' && 'Upload PDFs for AI-powered data extraction'}
+              {activeTab === 'documents' && 'View and manage extracted data'}
+              {activeTab === 'metrics' && 'Track costs and performance'}
+            </p>
+          </div>
+          <button
+            onClick={fetchDocuments}
+            disabled={isLoading}
+            className="btn btn-secondary"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="animate-fadeIn">
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              {/* Stats Grid */}
+              <div className="stats-grid">
+                <div className="stat-card blue">
+                  <div className="stat-label">Total Documents</div>
+                  <div className="stat-value">{totalDocuments}</div>
+                  <div className="stat-change" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    All time
+                  </div>
+                </div>
+                <div className="stat-card green">
+                  <div className="stat-label">Completed</div>
+                  <div className="stat-value">{completedDocuments}</div>
+                  <div className="stat-change" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    {totalDocuments > 0 ? Math.round((completedDocuments / totalDocuments) * 100) : 0}% success rate
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Pending</div>
+                  <div className="stat-value">{pendingDocuments}</div>
+                  <div className="stat-change">In queue</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Failed</div>
+                  <div className="stat-value">{failedDocuments}</div>
+                  <div className="stat-change negative">
+                    {failedDocuments > 0 ? 'Needs attention' : 'All good'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cost Summary */}
+              {stats.costSummary && (
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="card-title">Cost Summary</h3>
+                  </div>
+                  <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    <div>
+                      <div className="stat-label">Total Cost</div>
+                      <div className="stat-value" style={{ fontSize: '24px' }}>
+                        ${stats.costSummary.totalCost.toFixed(4)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="stat-label">Avg. per Document</div>
+                      <div className="stat-value" style={{ fontSize: '24px' }}>
+                        ${stats.costSummary.averageCostPerDocument.toFixed(6)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="stat-label">Batch Savings</div>
+                      <div className="stat-value" style={{ fontSize: '24px', color: 'var(--accent-green)' }}>
+                        ${stats.costSummary.batchSavings.toFixed(4)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Activity */}
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Recent Documents</h3>
+                  <button 
+                    className="btn btn-ghost"
+                    onClick={() => setActiveTab('documents')}
+                  >
+                    View All
+                  </button>
+                </div>
+                {documents.slice(0, 5).map(doc => (
+                  <div key={doc.id} className="activity-item">
+                    <div 
+                      className="activity-dot"
+                      style={{
+                        backgroundColor: 
+                          doc.status === 'COMPLETED' ? 'var(--accent-green)' :
+                          doc.status === 'FAILED' ? 'var(--accent-red)' :
+                          'var(--accent-orange)'
+                      }}
+                    />
+                    <div className="activity-content">
+                      <div className="activity-title">{doc.originalName}</div>
+                      <div className="activity-time">
+                        {doc.status} • {new Date(doc.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {documents.length === 0 && (
+                  <p style={{ color: 'var(--text-muted)', padding: '20px 0' }}>
+                    No documents yet. Upload some PDFs to get started.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'upload' && (
+            <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+              <UploadManager onUploadComplete={handleUploadComplete} />
+            </div>
+          )}
+
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <ExportControls data={documents} />
+              </div>
+              <DataTable 
+                data={documents}
+                onViewDocument={(doc) => setSelectedDocument(doc)}
+              />
+            </div>
+          )}
+
+          {activeTab === 'metrics' && (
+            <MetricsPanel
+              totalDocuments={totalDocuments}
+              completedDocuments={completedDocuments}
+              failedDocuments={failedDocuments}
+              pendingDocuments={pendingDocuments}
+              costSummary={stats.costSummary}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          )}
         </div>
       </main>
     </div>
