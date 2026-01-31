@@ -32,9 +32,9 @@ export function MetricsPanel({
     : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="flex flex-col gap-6">
       {/* Document Stats */}
-      <div className="stats-grid">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={FileText}
           label="Total Documents"
@@ -64,7 +64,7 @@ export function MetricsPanel({
 
       {/* Cost Stats */}
       {costSummary && (
-        <div className="stats-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={DollarSign}
             label="Total Cost"
@@ -83,19 +83,17 @@ export function MetricsPanel({
             value={`$${costSummary.batchSavings.toFixed(4)}`}
             color="blue"
           />
-          <div className="card">
-            <div className="card-title" style={{ marginBottom: '16px' }}>Model Usage</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="text-sm font-medium text-gray-500 mb-4">Model Usage</div>
+            <div className="flex flex-col gap-3">
               {Object.entries(costSummary.costByModel).map(([model, cost]) => (
-                <div key={model} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>
-                    {model.split('-').slice(-2).join('-')}
-                  </span>
-                  <span style={{ fontWeight: 500 }}>${cost.toFixed(4)}</span>
+                <div key={model} className="flex justify-between text-sm">
+                  <span className="text-gray-500">{model.split('-').slice(-2).join('-')}</span>
+                  <span className="font-medium text-gray-900">${cost.toFixed(4)}</span>
                 </div>
               ))}
               {Object.keys(costSummary.costByModel).length === 0 && (
-                <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No data yet</span>
+                <span className="text-gray-400 text-sm">No data yet</span>
               )}
             </div>
           </div>
@@ -104,28 +102,37 @@ export function MetricsPanel({
 
       {/* Progress Overview */}
       {totalDocuments > 0 && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <span className="card-title">Processing Progress</span>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{successRate}% complete</span>
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex justify-between mb-4">
+            <span className="text-lg font-semibold text-gray-900">Processing Progress</span>
+            <span className="text-sm text-gray-500">{successRate}% complete</span>
           </div>
-          <div style={{ height: '12px', background: 'var(--bg-tertiary)', borderRadius: '6px', overflow: 'hidden', display: 'flex' }}>
-            <div style={{ width: `${(completedDocuments / totalDocuments) * 100}%`, background: 'var(--accent-green)', transition: 'width 0.5s' }} />
-            <div style={{ width: `${(failedDocuments / totalDocuments) * 100}%`, background: 'var(--accent-red)', transition: 'width 0.5s' }} />
-            <div style={{ width: `${(pendingDocuments / totalDocuments) * 100}%`, background: 'var(--accent-orange)', transition: 'width 0.5s' }} />
+          <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
+            <div 
+              className="bg-emerald-500 transition-all duration-500" 
+              style={{ width: `${(completedDocuments / totalDocuments) * 100}%` }} 
+            />
+            <div 
+              className="bg-red-500 transition-all duration-500" 
+              style={{ width: `${(failedDocuments / totalDocuments) * 100}%` }} 
+            />
+            <div 
+              className="bg-amber-500 transition-all duration-500" 
+              style={{ width: `${(pendingDocuments / totalDocuments) * 100}%` }} 
+            />
           </div>
-          <div style={{ display: 'flex', gap: '24px', marginTop: '16px', fontSize: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-green)' }} />
-              <span style={{ color: 'var(--text-secondary)' }}>Completed</span>
+          <div className="flex gap-6 mt-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-gray-500">Completed</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-red)' }} />
-              <span style={{ color: 'var(--text-secondary)' }}>Failed</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <span className="text-gray-500">Failed</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-orange)' }} />
-              <span style={{ color: 'var(--text-secondary)' }}>Pending</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-gray-500">Pending</span>
             </div>
           </div>
         </div>
@@ -143,30 +150,26 @@ interface StatCardProps {
 }
 
 function StatCard({ icon: Icon, label, value, subValue, color }: StatCardProps) {
-  const colors = {
-    blue: { bg: 'var(--accent-blue-light)', icon: 'var(--accent-blue)' },
-    green: { bg: 'var(--accent-green-light)', icon: 'var(--accent-green)' },
-    red: { bg: 'var(--accent-red-light)', icon: 'var(--accent-red)' },
-    orange: { bg: 'var(--accent-orange-light)', icon: 'var(--accent-orange)' },
-    purple: { bg: 'var(--accent-purple-light)', icon: 'var(--accent-purple)' },
+  const colorClasses = {
+    blue: { bg: 'bg-blue-100', icon: 'text-blue-600' },
+    green: { bg: 'bg-emerald-100', icon: 'text-emerald-600' },
+    red: { bg: 'bg-red-100', icon: 'text-red-600' },
+    orange: { bg: 'bg-amber-100', icon: 'text-amber-600' },
+    purple: { bg: 'bg-purple-100', icon: 'text-purple-600' },
   };
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <div style={{ 
-          padding: '10px', 
-          borderRadius: '10px', 
-          background: colors[color].bg 
-        }}>
-          <Icon className="w-5 h-5" style={{ color: colors[color].icon }} />
+    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`p-2.5 rounded-lg ${colorClasses[color].bg}`}>
+          <Icon className={`w-5 h-5 ${colorClasses[color].icon}`} />
         </div>
-        <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{label}</span>
+        <span className="text-sm text-gray-500">{label}</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-        <span style={{ fontSize: '28px', fontWeight: 700 }}>{value}</span>
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl font-bold text-gray-900">{value}</span>
         {subValue && (
-          <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{subValue}</span>
+          <span className="text-sm text-gray-500">{subValue}</span>
         )}
       </div>
     </div>

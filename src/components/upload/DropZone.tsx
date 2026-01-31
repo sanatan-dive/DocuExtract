@@ -38,21 +38,24 @@ export function DropZone({
   return (
     <div
       {...getRootProps()}
-      className={`upload-zone ${isDragActive ? 'active' : ''}`}
-      style={{
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-        borderColor: isDragReject ? 'var(--accent-red)' : undefined,
-        background: isDragReject ? 'var(--accent-red-light)' : undefined,
-      }}
+      className={`
+        relative p-12 border-2 border-dashed rounded-2xl text-center cursor-pointer
+        transition-all duration-200
+        ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-indigo-400 hover:bg-indigo-50/50'}
+        ${isDragActive && !isDragReject ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50'}
+        ${isDragReject ? 'border-red-500 bg-red-50' : ''}
+      `}
     >
       <input {...getInputProps()} />
       
-      <div className="upload-zone-icon">
-        {isDragReject ? <AlertCircle /> : <Upload />}
+      <div className={`
+        w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center
+        ${isDragReject ? 'bg-red-100 text-red-500' : 'bg-indigo-100 text-indigo-600'}
+      `}>
+        {isDragReject ? <AlertCircle className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
       </div>
       
-      <p className="upload-zone-title">
+      <p className="text-lg font-semibold text-gray-800 mb-2">
         {isDragActive
           ? isDragReject
             ? 'Invalid file type'
@@ -60,15 +63,13 @@ export function DropZone({
           : 'Drag & drop PDF files here'}
       </p>
       
-      <p className="upload-zone-subtitle">
+      <p className="text-sm text-gray-500">
         or click to browse • Max {maxSizeMB}MB per file • Up to {maxFiles} files
       </p>
       
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
-        <FileText className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-          PDF files only
-        </span>
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <FileText className="w-4 h-4 text-gray-400" />
+        <span className="text-xs text-gray-400">PDF files only</span>
       </div>
     </div>
   );

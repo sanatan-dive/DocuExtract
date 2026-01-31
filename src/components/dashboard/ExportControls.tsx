@@ -87,20 +87,29 @@ export function ExportControls({ data }: ExportControlsProps) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <span style={{ fontSize: '14px', color: 'var(--text-secondary)', marginRight: '8px' }}>Export:</span>
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-gray-500 mr-2">Export:</span>
       
-      <button onClick={() => exportData('csv')} className="btn btn-secondary">
+      <button
+        onClick={() => exportData('csv')}
+        className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+      >
         <FileText className="w-4 h-4" />
         CSV
       </button>
 
-      <button onClick={() => exportData('json')} className="btn btn-secondary">
+      <button
+        onClick={() => exportData('json')}
+        className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+      >
         <FileJson className="w-4 h-4" />
         JSON
       </button>
 
-      <button onClick={() => exportData('xlsx')} className="btn btn-secondary">
+      <button
+        onClick={() => exportData('xlsx')}
+        className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+      >
         <FileSpreadsheet className="w-4 h-4" />
         Excel
       </button>

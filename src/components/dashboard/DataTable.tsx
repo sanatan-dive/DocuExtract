@@ -34,13 +34,35 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
+  const getBadgeClass = (type: string, variant: 'type' | 'status') => {
+    if (variant === 'type') {
+      const badges: Record<string, string> = {
+        HANDWRITTEN: 'bg-purple-100 text-purple-700',
+        TYPED: 'bg-blue-100 text-blue-700',
+        MIXED: 'bg-amber-100 text-amber-700',
+        SCANNED: 'bg-gray-100 text-gray-700',
+      };
+      return badges[type] || 'bg-blue-100 text-blue-700';
+    } else {
+      const badges: Record<string, string> = {
+        COMPLETED: 'bg-emerald-100 text-emerald-700',
+        FAILED: 'bg-red-100 text-red-700',
+        PENDING: 'bg-amber-100 text-amber-700',
+        PREPROCESSING: 'bg-blue-100 text-blue-700',
+        CLASSIFYING: 'bg-blue-100 text-blue-700',
+        EXTRACTING: 'bg-blue-100 text-blue-700',
+      };
+      return badges[type] || 'bg-blue-100 text-blue-700';
+    }
+  };
+
   const columns = useMemo<ColumnDef<DocumentWithRelations>[]>(
     () => [
       {
         accessorKey: 'originalName',
         header: ({ column }) => (
           <button
-            className="flex items-center gap-1 hover:text-gray-900"
+            className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           >
             File Name
@@ -49,43 +71,37 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
         ),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <span className="font-medium" style={{ maxWidth: '200px' }}>
+            <span className="font-medium text-gray-900 max-w-[200px] truncate">
               {row.original.originalName}
             </span>
             {row.original.extractedData?.needsReview && (
-              <AlertCircle className="w-4 h-4" style={{ color: 'var(--accent-orange)' }} />
+              <AlertCircle className="w-4 h-4 text-amber-500" />
             )}
           </div>
         ),
       },
       {
         accessorKey: 'extractedData.name',
-        header: 'Name',
-        cell: ({ row }) => row.original.extractedData?.name || '-',
+        header: () => <span className="text-gray-600">Name</span>,
+        cell: ({ row }) => <span className="text-gray-700">{row.original.extractedData?.name || '-'}</span>,
       },
       {
         accessorKey: 'extractedData.city',
-        header: 'City',
-        cell: ({ row }) => row.original.extractedData?.city || '-',
+        header: () => <span className="text-gray-600">City</span>,
+        cell: ({ row }) => <span className="text-gray-700">{row.original.extractedData?.city || '-'}</span>,
       },
       {
         accessorKey: 'extractedData.date',
-        header: 'Date',
-        cell: ({ row }) => row.original.extractedData?.date || '-',
+        header: () => <span className="text-gray-600">Date</span>,
+        cell: ({ row }) => <span className="text-gray-700">{row.original.extractedData?.date || '-'}</span>,
       },
       {
         accessorKey: 'classification',
-        header: 'Type',
+        header: () => <span className="text-gray-600">Type</span>,
         cell: ({ row }) => {
           const type = row.original.classification;
-          const badges: Record<string, string> = {
-            HANDWRITTEN: 'badge-purple',
-            TYPED: 'badge-info',
-            MIXED: 'badge-warning',
-            SCANNED: 'badge-secondary',
-          };
           return (
-            <span className={`badge ${badges[type || ''] || 'badge-info'}`}>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getBadgeClass(type || '', 'type')}`}>
               {type || 'Unknown'}
             </span>
           );
@@ -93,42 +109,31 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
       },
       {
         accessorKey: 'extractedData.overallConfidence',
-        header: 'Confidence',
+        header: () => <span className="text-gray-600">Confidence</span>,
         cell: ({ row }) => {
           const confidence = row.original.extractedData?.overallConfidence;
-          if (confidence === undefined || confidence === null) return '-';
+          if (confidence === undefined || confidence === null) return <span className="text-gray-400">-</span>;
           
           const percent = Math.round(confidence * 100);
+          const barColor = percent >= 80 ? 'bg-emerald-500' : percent < 50 ? 'bg-red-500' : 'bg-amber-500';
+          
           return (
             <div className="flex items-center gap-2">
-              <div className="progress-bar" style={{ width: '60px' }}>
-                <div
-                  className={`progress-fill ${percent >= 80 ? 'success' : percent < 50 ? 'error' : ''}`}
-                  style={{ width: `${percent}%` }}
-                />
+              <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className={`h-full ${barColor}`} style={{ width: `${percent}%` }} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                {percent}%
-              </span>
+              <span className="text-xs text-gray-500">{percent}%</span>
             </div>
           );
         },
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: () => <span className="text-gray-600">Status</span>,
         cell: ({ row }) => {
           const status = row.original.status;
-          const badges: Record<string, string> = {
-            COMPLETED: 'badge-success',
-            FAILED: 'badge-error',
-            PENDING: 'badge-warning',
-            PREPROCESSING: 'badge-info',
-            CLASSIFYING: 'badge-info',
-            EXTRACTING: 'badge-info',
-          };
           return (
-            <span className={`badge ${badges[status] || 'badge-info'}`}>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getBadgeClass(status, 'status')}`}>
               {status}
             </span>
           );
@@ -139,8 +144,7 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
         cell: ({ row }) => (
           <button
             onClick={() => onViewDocument?.(row.original)}
-            className="btn btn-ghost"
-            style={{ padding: '6px' }}
+            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -167,25 +171,25 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
   return (
     <div>
       {/* Search */}
-      <div className="search-box" style={{ maxWidth: '320px', marginBottom: '20px' }}>
-        <Search />
+      <div className="relative max-w-xs mb-5">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
           placeholder="Search documents..."
           value={globalFilter}
           onChange={e => setGlobalFilter(e.target.value)}
-          className="input-field"
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
         />
       </div>
 
       {/* Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <table className="data-table">
-          <thead>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
-                  <th key={header.id}>
+                  <th key={header.id} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -194,12 +198,12 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {table.getRowModel().rows.length > 0 ? (
               table.getRowModel().rows.map(row => (
-                <tr key={row.id}>
+                <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id}>
+                    <td key={cell.id} className="px-4 py-3 text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -207,7 +211,7 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan={columns.length} className="text-center py-10 text-gray-400">
                   No documents found
                 </td>
               </tr>
@@ -217,14 +221,13 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
       </div>
 
       {/* Pagination */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Rows per page:</span>
+      <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Rows per page:</span>
           <select
             value={table.getState().pagination.pageSize}
             onChange={e => table.setPageSize(Number(e.target.value))}
-            className="input-field"
-            style={{ width: 'auto', padding: '6px 10px' }}
+            className="px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           >
             {[10, 25, 50, 100].map(size => (
               <option key={size} value={size}>{size}</option>
@@ -232,22 +235,38 @@ export function DataTable({ data, onViewDocument }: DataTableProps) {
           </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">
             Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
           </span>
           
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()} className="btn btn-ghost" style={{ padding: '6px' }}>
+          <div className="flex gap-1">
+            <button
+              onClick={() => table.setPageIndex(0)}
+              disabled={!table.getCanPreviousPage()}
+              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <ChevronsLeft className="w-4 h-4" />
             </button>
-            <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="btn btn-ghost" style={{ padding: '6px' }}>
+            <button
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="btn btn-ghost" style={{ padding: '6px' }}>
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
-            <button onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()} className="btn btn-ghost" style={{ padding: '6px' }}>
+            <button
+              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+              disabled={!table.getCanNextPage()}
+              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <ChevronsRight className="w-4 h-4" />
             </button>
           </div>

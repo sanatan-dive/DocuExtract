@@ -23,27 +23,28 @@ export function UploadQueue({ items, onRetry, onRemove }: UploadQueueProps) {
   const completed = items.filter(i => i.status === 'complete').length;
   const failed = items.filter(i => i.status === 'error').length;
   const processing = items.filter(i => ['uploading', 'processing'].includes(i.status)).length;
+  const progressPercent = items.length > 0 ? (completed / items.length) * 100 : 0;
 
   return (
-    <div className="card" style={{ marginTop: '24px' }}>
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="card-title">Upload Queue</h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          <h3 className="text-lg font-semibold text-gray-900">Upload Queue</h3>
+          <p className="text-sm text-gray-500 mt-1">
             {completed} completed • {processing} processing • {failed} failed
           </p>
         </div>
-        <div className="progress-bar" style={{ width: '120px' }}>
+        <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
           <div 
-            className="progress-fill"
-            style={{ width: `${(completed / items.length) * 100}%` }}
+            className="h-full bg-indigo-600 transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
       </div>
 
       {/* Items */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className="flex flex-col gap-2">
         {items.map(item => (
           <UploadQueueItem
             key={item.id}
@@ -65,72 +66,58 @@ interface UploadQueueItemProps {
 
 function UploadQueueItem({ item, onRetry, onRemove }: UploadQueueItemProps) {
   const statusConfig = {
-    pending: { icon: FileText, badge: 'badge-info', label: 'Pending' },
-    uploading: { icon: Loader2, badge: 'badge-info', label: 'Uploading' },
-    processing: { icon: Loader2, badge: 'badge-warning', label: 'Processing' },
-    complete: { icon: CheckCircle, badge: 'badge-success', label: 'Complete' },
-    error: { icon: AlertCircle, badge: 'badge-error', label: 'Failed' },
+    pending: { icon: FileText, badgeClass: 'bg-blue-100 text-blue-700', label: 'Pending' },
+    uploading: { icon: Loader2, badgeClass: 'bg-blue-100 text-blue-700', label: 'Uploading' },
+    processing: { icon: Loader2, badgeClass: 'bg-amber-100 text-amber-700', label: 'Processing' },
+    complete: { icon: CheckCircle, badgeClass: 'bg-emerald-100 text-emerald-700', label: 'Complete' },
+    error: { icon: AlertCircle, badgeClass: 'bg-red-100 text-red-700', label: 'Failed' },
   };
 
   const config = statusConfig[item.status];
   const StatusIcon = config.icon;
   const isAnimated = ['uploading', 'processing'].includes(item.status);
 
+  const iconColorClass = 
+    item.status === 'complete' ? 'text-emerald-500' :
+    item.status === 'error' ? 'text-red-500' : 'text-gray-400';
+
   return (
-    <div style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '12px',
-      padding: '12px',
-      background: 'var(--bg-tertiary)',
-      borderRadius: '8px',
-    }}>
-      <StatusIcon 
-        className={`w-5 h-5 ${isAnimated ? 'animate-spin' : ''}`}
-        style={{ 
-          color: item.status === 'complete' ? 'var(--accent-green)' : 
-                 item.status === 'error' ? 'var(--accent-red)' : 
-                 'var(--text-secondary)',
-          flexShrink: 0,
-        }}
-      />
+    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+      <StatusIcon className={`w-5 h-5 shrink-0 ${iconColorClass} ${isAnimated ? 'animate-spin' : ''}`} />
       
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          {item.fileName}
-        </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-gray-900 truncate">{item.fileName}</div>
         
         {item.errorMessage && (
-          <div style={{ fontSize: '12px', color: 'var(--accent-red)', marginTop: '2px' }}>
-            {item.errorMessage}
-          </div>
+          <div className="text-xs text-red-500 mt-0.5">{item.errorMessage}</div>
         )}
         
         {isAnimated && (
-          <div className="progress-bar" style={{ marginTop: '6px' }}>
-            <div className="progress-fill" style={{ width: `${item.progress}%` }} />
+          <div className="h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
+            <div 
+              className="h-full bg-indigo-500 transition-all duration-300"
+              style={{ width: `${item.progress}%` }} 
+            />
           </div>
         )}
       </div>
 
-      <span className={`badge ${config.badge}`}>{config.label}</span>
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.badgeClass}`}>
+        {config.label}
+      </span>
 
       {item.status === 'error' && (
-        <button onClick={onRetry} className="btn btn-ghost" style={{ padding: '6px' }}>
+        <button 
+          onClick={onRetry} 
+          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+        >
           <RotateCcw className="w-4 h-4" />
         </button>
       )}
 
       <button 
         onClick={onRemove} 
-        className="btn btn-ghost" 
-        style={{ padding: '6px' }}
+        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
         disabled={isAnimated}
       >
         <X className="w-4 h-4" />

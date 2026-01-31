@@ -49,30 +49,26 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
 
   const confidenceScores = document.extractedData?.confidenceScores as Record<string, number> | undefined;
 
-  const getAccuracyColor = (field: string) => {
+  const getConfidenceClass = (field: string) => {
     const score = confidenceScores?.[field];
-    if (score === undefined) return 'var(--border-color)';
-    if (score > 0.8) return 'var(--accent-green)';
-    if (score > 0.5) return 'var(--accent-orange)';
-    return 'var(--accent-red)';
+    if (score === undefined) return 'border-gray-200';
+    if (score > 0.8) return 'border-emerald-500';
+    if (score > 0.5) return 'border-amber-500';
+    return 'border-red-500';
   };
 
-  // Compute PDF URL for preview
   const pdfUrl = `/api/file?name=${encodeURIComponent(document.fileName)}`;
+  const overallConfidence = document.extractedData?.overallConfidence || 0;
+  const confidenceColorClass = overallConfidence > 0.8 ? 'text-emerald-600' : overallConfidence > 0.5 ? 'text-amber-600' : 'text-red-600';
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div 
-        className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden"
-        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
-      >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-gray-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200" style={{ borderColor: 'var(--border-color)' }}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Review Document
-            </h2>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <h2 className="text-lg font-semibold text-gray-900">Review Document</h2>
+            <p className="text-sm text-gray-500">
               {document.originalName} • {document.classification || 'Unknown Type'} • Model: {document.modelUsed || 'N/A'}
             </p>
           </div>
@@ -82,25 +78,25 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
               <div className="relative group">
                 <button
                   disabled={isReExtracting}
-                  className="btn btn-secondary"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                   onClick={() => handleReExtract()}
                 >
                   <RotateCcw className={`w-4 h-4 ${isReExtracting ? 'animate-spin' : ''}`} />
                   {isReExtracting ? 'Re-Extracting...' : 'Re-Extract'}
                 </button>
-                <div className="absolute right-0 mt-1 w-48 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                   <button 
                     onClick={() => handleReExtract('gemini-2.5-flash')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
                   >
-                    <Zap className="w-3 h-3" style={{ color: 'var(--accent-orange)' }} />
+                    <Zap className="w-3 h-3 text-amber-500" />
                     Force Flash (Fast)
                   </button>
                   <button 
                     onClick={() => handleReExtract('gemini-2.5-pro')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
                   >
-                    <Cpu className="w-3 h-3" style={{ color: 'var(--primary)' }} />
+                    <Cpu className="w-3 h-3 text-indigo-500" />
                     Force Pro (Accurate)
                   </button>
                 </div>
@@ -110,14 +106,14 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="btn btn-primary"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {isSaving ? 'Saving...' : 'Save & Verify'}
             </button>
             <button
               onClick={onClose}
-              className="btn btn-ghost"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -127,7 +123,7 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
           {/* PDF View (Left) */}
-          <div className="w-1/2 bg-gray-100 border-r overflow-hidden" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}>
+          <div className="w-1/2 bg-gray-100 border-r border-gray-200 overflow-hidden">
             <iframe 
               src={pdfUrl}
               className="w-full h-full"
@@ -137,20 +133,17 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
           </div>
 
           {/* Form (Right) */}
-          <div className="w-1/2 p-6 overflow-y-auto bg-white" style={{ background: 'var(--bg-secondary)' }}>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+          <div className="w-1/2 p-6 overflow-y-auto bg-white">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">
               Extracted Data
             </h3>
             
             {/* Confidence Summary */}
-            <div className="mb-6 p-3 rounded-lg" style={{ background: 'var(--bg-tertiary)' }}>
+            <div className="mb-6 p-3 rounded-lg bg-gray-50">
               <div className="flex items-center justify-between text-sm">
-                <span style={{ color: 'var(--text-secondary)' }}>Overall Confidence</span>
-                <span className="font-semibold" style={{ 
-                  color: (document.extractedData?.overallConfidence || 0) > 0.8 ? 'var(--accent-green)' : 
-                         (document.extractedData?.overallConfidence || 0) > 0.5 ? 'var(--accent-orange)' : 'var(--accent-red)'
-                }}>
-                  {Math.round((document.extractedData?.overallConfidence || 0) * 100)}%
+                <span className="text-gray-500">Overall Confidence</span>
+                <span className={`font-semibold ${confidenceColorClass}`}>
+                  {Math.round(overallConfidence * 100)}%
                 </span>
               </div>
             </div>
@@ -160,50 +153,50 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
                 label="Name" 
                 value={formData.name as string} 
                 onChange={v => handleChange('name', v)}
-                confidenceColor={getAccuracyColor('name')}
+                confidenceClass={getConfidenceClass('name')}
               />
               <div className="grid grid-cols-2 gap-4">
                  <FormField 
                   label="Date" 
                   value={formData.date as string} 
                   onChange={v => handleChange('date', v)}
-                  confidenceColor={getAccuracyColor('date')}
+                  confidenceClass={getConfidenceClass('date')}
                 />
                  <FormField 
                   label="Time" 
                   value={formData.time as string} 
                   onChange={v => handleChange('time', v)}
-                  confidenceColor={getAccuracyColor('time')}
+                  confidenceClass={getConfidenceClass('time')}
                 />
               </div>
               <FormField 
                 label="Address" 
                 value={formData.address as string} 
                 onChange={v => handleChange('address', v)}
-                confidenceColor={getAccuracyColor('address')}
+                confidenceClass={getConfidenceClass('address')}
               />
               <div className="grid grid-cols-2 gap-4">
                 <FormField 
                   label="Postal Code" 
                   value={formData.postalcode as string} 
                   onChange={v => handleChange('postalcode', v)}
-                  confidenceColor={getAccuracyColor('postalcode')}
+                  confidenceClass={getConfidenceClass('postalcode')}
                 />
                 <FormField 
                   label="City" 
                   value={formData.city as string} 
                   onChange={v => handleChange('city', v)}
-                  confidenceColor={getAccuracyColor('city')}
+                  confidenceClass={getConfidenceClass('city')}
                 />
               </div>
                <FormField 
                   label="Date of Birth" 
                   value={formData.birthday as string} 
                   onChange={v => handleChange('birthday', v)}
-                  confidenceColor={getAccuracyColor('birthday')}
+                  confidenceClass={getConfidenceClass('birthday')}
                 />
               
-              <div className="pt-4 border-t border-gray-100 mt-6" style={{ borderColor: 'var(--border-color)' }}>
+              <div className="pt-4 border-t border-gray-100 mt-6">
                 <div className="flex items-center gap-4 mb-2">
                   <Checkbox 
                     label="Handwritten" 
@@ -220,7 +213,7 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
                   label="Stamp Detected" 
                   value={formData.stamp as string} 
                   onChange={v => handleChange('stamp', v)}
-                  confidenceColor={getAccuracyColor('stamp')}
+                  confidenceClass={getConfidenceClass('stamp')}
                 />
               </div>
             </div>
@@ -231,15 +224,15 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
   );
 }
 
-function FormField({ label, value, onChange, confidenceColor }: { 
+function FormField({ label, value, onChange, confidenceClass }: { 
   label: string, 
   value: string, 
   onChange: (val: string) => void,
-  confidenceColor: string 
+  confidenceClass: string 
 }) {
   return (
     <div className="relative">
-      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+      <label className="block text-xs font-medium text-gray-500 mb-1">
         {label}
       </label>
       <div className="relative">
@@ -247,8 +240,7 @@ function FormField({ label, value, onChange, confidenceColor }: {
           type="text"
           value={value || ''}
           onChange={e => onChange(e.target.value)}
-          className="input-field w-full pl-3 pr-8"
-          style={{ borderRightWidth: '4px', borderRightColor: confidenceColor }}
+          className={`w-full px-3 py-2.5 bg-white border-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${confidenceClass}`}
         />
       </div>
     </div>
@@ -257,12 +249,12 @@ function FormField({ label, value, onChange, confidenceColor }: {
 
 function Checkbox({ label, checked, onChange }: { label: string, checked: boolean, onChange: (val: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
       <input 
         type="checkbox" 
         checked={checked || false}
         onChange={e => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-gray-300"
+        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
       />
       {label}
     </label>
