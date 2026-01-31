@@ -2,7 +2,7 @@ import { readFile, access } from 'fs/promises';
 import { constants } from 'fs';
 import path from 'path';
 import prisma from '@/lib/db';
-import { generateWithBase64Images, MODELS, ModelType } from './geminiClient';
+import { generateWithBase64Images, generateWithPdf, MODELS, ModelType } from './geminiClient';
 import { getExtractionPrompt, getFileNamingPrompt } from './extractionPrompts';
 import { classifyDocument } from '@/lib/classification/classifier';
 import { ExtractionResult, ConfidenceScores } from '@/types';
@@ -19,6 +19,7 @@ export interface ExtractDocumentOptions {
 
 /**
  * Main extraction function - processes a document end-to-end
+ * Uses PDF-direct approach with Gemini API (avoids Node.js canvas issues)
  */
 export async function extractDocument(
   documentId: string,
@@ -53,50 +54,15 @@ export async function extractDocument(
       throw new Error(`PDF file not found: ${pdfPath}`);
     }
 
-    // Convert PDF to images
-    // Use the first page for extraction (most typical for forms)
-    // In a full implementation, we would process all pages and concatenate text or use multi-modal input
-    const pdfToImages = (await import('../preprocessing/pdfToImages')).pdfToImages;
-    const enhanceImage = (await import('../preprocessing/imageEnhancer')).enhanceImage;
-    const imageToBase64 = (await import('../preprocessing/imageEnhancer')).imageToBase64;
+    // Get PDF metadata (page count, etc.) using legacy build
+    const { getPdfPageCount, extractPdfText } = await import('../preprocessing/pdfToImages');
+    const pageCount = await getPdfPageCount(pdfPath);
 
-    // 1. Convert PDF to images (300 DPI)
-    const pageImages = await pdfToImages(pdfPath, documentId);
-    
-    if (pageImages.length === 0) {
-      throw new Error('No images extracted from PDF');
-    }
-
-    // 2. Enhance images (Denoise, Deskew, etc.)
-    const processedImages = [];
-    for (const page of pageImages) {
-        const enhancedResult = await enhanceImage(
-            page.imagePath, 
-            page.imagePath.replace('.png', '_enhanced.png')
-        );
-        
-        // Save processed image record to DB
-        await prisma.processedImage.create({
-            data: {
-                documentId,
-                pageNumber: page.pageNumber,
-                imagePath: enhancedResult.outputPath,
-                width: enhancedResult.width,
-                height: enhancedResult.height,
-                dpi: page.dpi,
-                rotated: enhancedResult.rotated,
-                deskewed: enhancedResult.deskewed,
-                enhanced: enhancedResult.enhanced
-            }
-        });
-        
-        processedImages.push(enhancedResult);
-    }
-    
-    // 3. Prepare for Gemini (use first page enhanced image for now to save tokens/costs)
-    // For production with multi-page support, we'd loop through all
-    const imagePath = processedImages[0].outputPath;
-    const base64Image = await imageToBase64(imagePath);
+    // Update page count
+    await prisma.document.update({
+      where: { id: documentId },
+      data: { pageCount },
+    });
 
     // Update status to classifying
     await prisma.document.update({
@@ -104,23 +70,44 @@ export async function extractDocument(
       data: { status: 'CLASSIFYING' },
     });
 
-    // Classify the document (unless skipped or forced model)
+    // Classify the document using text extraction (avoids canvas rendering)
     let model: ModelType = options.forceModel || MODELS.FLASH;
     let classification = document.classification;
 
     if (!options.skipClassification && !options.forceModel) {
-      const classResult = await classifyDocument(base64Image, 'image/png');
-      classification = classResult.type;
-      model = classResult.recommendedModel as ModelType;
+      try {
+        // Use text-based classification to avoid canvas issues
+        const pdfText = await extractPdfText(pdfPath);
+        
+        // Simple heuristic classification based on text content
+        // DocumentType enum: HANDWRITTEN, TYPED, MIXED, SCANNED
+        const textLower = pdfText.toLowerCase();
+        const hasSignature = textLower.includes('signature') || textLower.includes('signed');
+        const hasHandwrittenIndicators = textLower.includes('handwritten') || textLower.includes('please print');
+        
+        if (hasHandwrittenIndicators || hasSignature) {
+          classification = 'MIXED'; // Likely has both typed and handwritten elements
+          model = MODELS.PRO; // Use Pro for mixed/complex documents
+        } else if (pdfText.length < 100) {
+          classification = 'SCANNED'; // Minimal text extracted suggests scanned image
+          model = MODELS.PRO;
+        } else {
+          classification = 'TYPED'; // Standard typed document
+          model = MODELS.FLASH;
+        }
 
-      // Update classification in database
-      await prisma.document.update({
-        where: { id: documentId },
-        data: {
-          classification: classResult.type,
-          classificationConfidence: classResult.confidence,
-        },
-      });
+        // Update classification in database
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            classification,
+            classificationConfidence: 0.8, // Heuristic, so moderate confidence
+          },
+        });
+      } catch (classError) {
+        console.warn('Classification failed, using defaults:', classError);
+        classification = 'TYPED'; // Fallback to TYPED
+      }
     }
 
     // Update status to extracting
@@ -134,14 +121,10 @@ export async function extractDocument(
 
     // Get appropriate prompt
     const isHandwritten = classification === 'HANDWRITTEN' || classification === 'MIXED';
-    const prompt = getExtractionPrompt(isHandwritten, document.pageCount > 1);
+    const prompt = getExtractionPrompt(isHandwritten, pageCount > 1);
 
-    // Call Gemini for extraction
-    const result = await generateWithBase64Images(
-      prompt,
-      [{ base64: base64Image, mimeType: 'image/png' }],
-      model
-    );
+    // Call Gemini directly with PDF (no canvas rendering needed!)
+    const result = await generateWithPdf(prompt, pdfPath, model);
 
     // Parse the extraction result
     const extractedData = parseExtractionResult(result.text);
@@ -153,7 +136,7 @@ export async function extractDocument(
     const validationIssues = validateExtractedData(extractedData);
     const needsReview = validationIssues.length > 0 || 
       (extractedData.confidence_scores && 
-       Object.values(extractedData.confidence_scores).some(score => score && score < 0.7));
+       Object.values(extractedData.confidence_scores as Record<string, number | null | undefined>).some(score => typeof score === 'number' && score < 0.7));
 
     // Calculate overall confidence
     const overallConfidence = calculateOverallConfidence(extractedData.confidence_scores);
@@ -201,7 +184,7 @@ export async function extractDocument(
       });
     }
 
-    // Update document status to completed
+    // Update document status to completed (use COMPLETED - needsReview is tracked in ExtractedData)
     await prisma.document.update({
       where: { id: documentId },
       data: {
@@ -210,21 +193,31 @@ export async function extractDocument(
       },
     });
 
+    // Return ExtractionResult matching the type definition
     return {
-      ...extractedData,
+      name: extractedData.name || null,
+      address: extractedData.address || null,
+      postalcode: extractedData.postalcode || null,
+      city: extractedData.city || null,
+      birthday: extractedData.birthday || null,
+      date: extractedData.date || null,
+      time: extractedData.time || null,
+      handwritten: extractedData.handwritten || false,
+      signed: extractedData.signed || false,
+      stamp: extractedData.stamp || null,
       pdf_file_name: fileName,
       status: needsReview ? 'partial' : 'success',
+      confidence_scores: extractedData.confidence_scores || {},
     };
 
   } catch (error) {
     console.error('Extraction error:', error);
-
-    // Update document status to failed
+    
+    // Update status to failed
     await prisma.document.update({
       where: { id: documentId },
       data: {
         status: 'FAILED',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
         processingCompletedAt: new Date(),
       },
     });
@@ -234,37 +227,23 @@ export async function extractDocument(
 }
 
 /**
- * Parse extraction result from JSON string
+ * Parse the extraction result from Gemini
  */
-function parseExtractionResult(text: string): ExtractionResult {
+function parseExtractionResult(text: string): any {
   try {
-    // Find JSON in the response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in extraction response');
+    // Try to extract JSON from the response
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[1]);
+    }
+    
+    // Try direct JSON parse
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{')) {
+      return JSON.parse(trimmed);
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-
-    return {
-      name: parsed.name || null,
-      address: parsed.address || null,
-      postalcode: parsed.postalcode || null,
-      city: parsed.city || null,
-      birthday: parsed.birthday || null,
-      date: parsed.date || null,
-      time: parsed.time || null,
-      handwritten: !!parsed.handwritten,
-      signed: !!parsed.signed,
-      stamp: parsed.stamp || null,
-      pdf_file_name: '',
-      status: 'success',
-      confidence_scores: parsed.confidence_scores || {},
-    };
-
-  } catch (error) {
-    console.error('Failed to parse extraction result:', error);
-    
+    // If no JSON found, create a basic structure
     return {
       name: null,
       address: null,
@@ -275,46 +254,60 @@ function parseExtractionResult(text: string): ExtractionResult {
       time: null,
       handwritten: false,
       signed: false,
-      stamp: null,
-      pdf_file_name: '',
-      status: 'failed',
+      stamp: false,
       confidence_scores: {},
+      raw_text: text,
+    };
+  } catch (error) {
+    console.error('Failed to parse extraction result:', error);
+    return {
+      name: null,
+      address: null,
+      postalcode: null,
+      city: null,
+      birthday: null,
+      date: null,
+      time: null,
+      handwritten: false,
+      signed: false,
+      stamp: false,
+      confidence_scores: {},
+      raw_text: text,
+      parse_error: true,
     };
   }
 }
 
 /**
- * Validate extracted data and return issues
+ * Validate extracted data and return list of issues
  */
-function validateExtractedData(data: ExtractionResult): string[] {
+function validateExtractedData(data: any): string[] {
   const issues: string[] = [];
 
-  // Validate postal code
-  if (data.postalcode && !isValidPostalCode(data.postalcode)) {
-    issues.push(`Invalid postal code format: ${data.postalcode}`);
-  }
-
-  // Validate date format
+  // Check date formats
   if (data.birthday && !isValidDateFormat(data.birthday)) {
-    issues.push(`Invalid birthday format: ${data.birthday}`);
+    issues.push(`Birthday format invalid: ${data.birthday}`);
   }
-
   if (data.date && !isValidDateFormat(data.date)) {
-    issues.push(`Invalid date format: ${data.date}`);
+    issues.push(`Date format invalid: ${data.date}`);
   }
 
-  // Validate time format
+  // Check postal code
+  if (data.postalcode && !isValidPostalCode(data.postalcode)) {
+    issues.push(`Postal code format invalid: ${data.postalcode}`);
+  }
+
+  // Check time format
   if (data.time && !isValidTimeFormat(data.time)) {
-    issues.push(`Invalid time format: ${data.time}`);
+    issues.push(`Time format invalid: ${data.time}`);
   }
 
-  // Validate stamp options
-  const validStamps = ['BB', 'AB', 'FK', 'S'];
-  if (data.stamp) {
-    const stamps = data.stamp.split(',').map(s => s.trim());
-    const invalidStamps = stamps.filter(s => !validStamps.includes(s));
-    if (invalidStamps.length > 0) {
-      issues.push(`Invalid stamp value(s): ${invalidStamps.join(', ')}`);
+  // Check for low confidence scores
+  if (data.confidence_scores) {
+    for (const [field, score] of Object.entries(data.confidence_scores)) {
+      if (score !== null && (score as number) < 0.5) {
+        issues.push(`Low confidence for ${field}: ${score}`);
+      }
     }
   }
 
@@ -322,44 +315,86 @@ function validateExtractedData(data: ExtractionResult): string[] {
 }
 
 /**
- * Calculate overall confidence from individual scores
+ * Calculate overall confidence score
  */
-function calculateOverallConfidence(scores: ConfidenceScores | undefined): number {
+function calculateOverallConfidence(scores?: ConfidenceScores): number {
   if (!scores) return 0.5;
-
-  const values = Object.values(scores).filter((v): v is number => typeof v === 'number');
+  
+  const values = Object.values(scores).filter(v => v !== null && v !== undefined) as number[];
   if (values.length === 0) return 0.5;
-
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
+  
+  return values.reduce((sum, val) => sum + val, 0) / values.length;
 }
 
 /**
- * Generate a file name based on extracted data
+ * Generate a smart file name based on extracted data
  */
-async function generateFileName(data: ExtractionResult): Promise<string> {
-  const date = data.date 
-    ? data.date.split('.').reverse().join('-') 
-    : 'undated';
+async function generateFileName(extractedData: any): Promise<string> {
+  const parts: string[] = [];
+  
+  // Add date if available
+  if (extractedData.date) {
+    parts.push(extractedData.date.replace(/\//g, '-'));
+  }
+  
+  // Add name if available
+  if (extractedData.name) {
+    // Clean the name
+    const cleanName = extractedData.name
+      .replace(/[^a-zA-Z\s]/g, '')
+      .split(' ')
+      .slice(0, 2)
+      .join('_');
+    parts.push(cleanName);
+  }
+  
+  // Add type indicator
+  if (extractedData.signed) {
+    parts.push('signed');
+  }
+  
+  if (parts.length === 0) {
+    parts.push('document');
+  }
+  
+  return parts.join('_') + '.pdf';
+}
 
-  let name = 'unknown';
-  if (data.name) {
-    const parts = data.name.split(' ');
-    if (parts.length >= 2) {
-      const lastName = parts[parts.length - 1].toLowerCase();
-      const firstName = parts[0].toLowerCase();
-      name = `${lastName}_${firstName}`;
-    } else {
-      name = parts[0].toLowerCase();
+/**
+ * Batch extraction for multiple documents
+ */
+export async function batchExtract(
+  documentIds: string[],
+  options: ExtractDocumentOptions = {}
+): Promise<ExtractionResult[]> {
+  const results: ExtractionResult[] = [];
+  
+  for (const docId of documentIds) {
+    try {
+      const result = await extractDocument(docId, {
+        ...options,
+        useBatchApi: documentIds.length > 100,
+      });
+      results.push(result);
+    } catch (error) {
+      // Return a failed ExtractionResult for this document
+      results.push({
+        name: null,
+        address: null,
+        postalcode: null,
+        city: null,
+        birthday: null,
+        date: null,
+        time: null,
+        handwritten: false,
+        signed: false,
+        stamp: null,
+        pdf_file_name: docId,
+        status: 'failed',
+        confidence_scores: {},
+      });
     }
   }
-
-  // Sanitize the name
-  name = name
-    .replace(/[äÄ]/g, 'ae')
-    .replace(/[öÖ]/g, 'oe')
-    .replace(/[üÜ]/g, 'ue')
-    .replace(/[ß]/g, 'ss')
-    .replace(/[^a-z0-9_]/g, '_');
-
-  return `doc_${date}_${name}`;
+  
+  return results;
 }

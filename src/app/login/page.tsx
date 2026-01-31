@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import Cookies from 'js-cookie';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,8 +48,6 @@ export default function LoginPage() {
         // Switch to login after registration
         setIsLogin(true);
         setError('Registration successful! Please login.');
-        // Clear success message after 3000ms ?? Na, just keep it as "Error" style but green if I had a success state.
-        // For now, simple textual feedback. 
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -58,109 +57,166 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4" style={{ background: 'var(--bg-secondary)' }}>
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-300">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gray-50">
+      {/* Background Decor */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-100 rounded-full blur-3xl opacity-30 animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-100 rounded-full blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden z-10"
+      >
         <div className="p-8">
-          <div className="flex justify-center mb-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-              <Lock className="w-6 h-6" />
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+            className="flex justify-center mb-6"
+          >
+            <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform rotate-[-10deg] hover:rotate-0 transition-transform duration-300">
+              <Lock className="w-8 h-8 text-white" />
             </div>
-          </div>
+          </motion.div>
           
-          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </h2>
-          <p className="text-center text-gray-500 mb-8">
-            {isLogin ? 'Enter your credentials to access the dashboard' : 'Sign up to start extracting data'}
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h2 className="text-3xl font-bold text-center text-gray-800 mb-2 tracking-tight">
+              {isLogin ? 'Welcome Back' : 'Get Started'}
+            </h2>
+            <p className="text-center text-gray-500 mb-8 font-medium">
+              {isLogin ? 'Access your intelligent extraction pipeline' : 'Create an account to automate your workflow'}
+            </p>
+          </motion.div>
 
-          {error && (
-            <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 text-sm ${error.includes('successful') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder="John Doe"
-                />
-              </div>
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className={`mb-6 p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
+                  error.includes('successful') 
+                    ? 'bg-green-50 text-green-600 border border-green-100' 
+                    : 'bg-red-50 text-red-600 border border-red-100'
+                }`}
+              >
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                {error}
+              </motion.div>
             )}
+          </AnimatePresence>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <AnimatePresence mode="popLayout">
+              {!isLogin && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Full Name</label>
+                  <motion.input
+                    whileFocus={{ scale: 1.01 }}
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 font-medium"
+                    placeholder="John Doe"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <div className="relative">
-                <input
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Email Address</label>
+              <div className="relative group">
+                <motion.input
+                  whileFocus={{ scale: 1.01 }}
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 font-medium group-hover:border-gray-300"
                   placeholder="name@company.com"
                 />
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-5 h-5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-blue-500" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <div className="relative">
-                <input
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Password</label>
+              <div className="relative group">
+                <motion.input
+                  whileFocus={{ scale: 1.01 }}
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 font-medium group-hover:border-gray-300"
                   placeholder="••••••••"
                 />
-                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-              <div className="mt-1 text-right">
-                <div className="text-xs text-gray-500">
-                  Demo: <span className="font-mono bg-gray-100 px-1 rounded">demo@docuextract.com</span> / <span className="font-mono bg-gray-100 px-1 rounded">demo123</span>
-                </div>
+                <Lock className="w-5 h-5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-blue-500" />
               </div>
             </div>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02, translateY: -1 }}
+              whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 mt-6"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
                   {isLogin ? 'Sign In' : 'Create Account'}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-5 h-5" />
                 </>
               )}
-            </button>
+            </motion.button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-500">
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError(null);
-              }}
-              className="text-blue-600 hover:underline font-medium"
-            >
-              {isLogin ? 'Sign up' : 'Log in'}
-            </button>
-          </div>
+          <motion.div 
+            layout 
+            className="mt-8 text-center"
+          >
+            <p className="text-sm text-gray-500 mb-4">
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              <button
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError(null);
+                }}
+                className="text-blue-600 hover:text-blue-700 font-semibold hover:underline transition-colors"
+              >
+                {isLogin ? 'Sign up' : 'Log in'}
+              </button>
+            </p>
+
+            {isLogin && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="inline-block px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500"
+              >
+                <span className="font-semibold text-gray-700 block mb-1">Demo Credentials:</span>
+                <div className="font-mono bg-white px-2 py-0.5 rounded border border-gray-100 inline-block mr-2">demo@docuextract.com</div>
+                <div className="font-mono bg-white px-2 py-0.5 rounded border border-gray-100 inline-block">demo123</div>
+              </motion.div>
+            )}
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

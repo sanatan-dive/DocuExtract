@@ -140,3 +140,38 @@ export function isConfigured(): boolean {
 }
 
 export { genAI };
+
+/**
+ * Generate content with PDF file (Gemini accepts PDFs directly)
+ */
+export async function generateWithPdf(
+  prompt: string,
+  pdfPath: string,
+  model: ModelType = MODELS.FLASH
+): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number } }> {
+  const geminiModel = getModel(model);
+  
+  const pdfBuffer = await readFile(pdfPath);
+  const base64Pdf = pdfBuffer.toString('base64');
+  
+  const pdfPart: Part = {
+    inlineData: {
+      mimeType: 'application/pdf',
+      data: base64Pdf,
+    },
+  };
+  
+  const result = await geminiModel.generateContent([prompt, pdfPart]);
+  const response = result.response;
+  
+  const usage = result.response.usageMetadata;
+  
+  return {
+    text: response.text(),
+    usage: usage ? {
+      inputTokens: usage.promptTokenCount || 0,
+      outputTokens: usage.candidatesTokenCount || 0,
+    } : undefined,
+  };
+}
+
