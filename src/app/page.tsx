@@ -2,24 +2,21 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  FileText,
-  Settings,
-  HelpCircle,
-  LayoutDashboard,
-  FileUp,
-  FolderOpen,
-  BarChart3,
+  Search,
+  Sun,
+  Bell,
   RefreshCw,
-  LogOut
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { UploadManager } from '@/components/upload/UploadManager';
-import { DataTable, ExportControls, MetricsPanel, DocumentDetailModal } from '@/components/dashboard';
+import { DataTable, ExportControls, MetricsPanel, DocumentDetailModal, Sidebar, NotificationsPanel } from '@/components/dashboard';
 import { DocumentWithRelations, CostSummary } from '@/types';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type TabType = 'dashboard' | 'upload' | 'documents' | 'metrics';
+type TabType = 'dashboard' | 'upload' | 'documents' | 'metrics' | 'profile' | 'account' | 'corporate' | 'blog' | 'social';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -32,6 +29,7 @@ export default function Dashboard() {
     costSummary?: CostSummary;
   }>({ statusCounts: {} });
   const [isLoading, setIsLoading] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(true);
 
   const handleLogout = () => {
     Cookies.remove('auth_token');
@@ -101,26 +99,11 @@ export default function Dashboard() {
   const completedDocuments = stats.statusCounts['COMPLETED'] || 0;
   const failedDocuments = stats.statusCounts['FAILED'] || 0;
   const pendingDocuments = totalDocuments - completedDocuments - failedDocuments;
-
-  const navItems = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'upload' as const, label: 'Upload', icon: FileUp },
-    { id: 'documents' as const, label: 'Documents', icon: FolderOpen },
-    { id: 'metrics' as const, label: 'Metrics', icon: BarChart3 },
-  ];
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-  };
+  const successRate = totalDocuments > 0 ? ((completedDocuments / totalDocuments) * 100).toFixed(1) : '0';
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen" style={{ background: 'var(--color-bg-primary)' }}>
+      {/* Document Detail Modal */}
       <AnimatePresence>
         {selectedDocument && (
           <div className="fixed inset-0 z-50">
@@ -135,208 +118,223 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className="w-60 bg-white border-r border-gray-200 fixed h-screen overflow-y-auto p-4">
-        <div className="flex items-center gap-3 px-3 mb-8">
-          <motion.div 
-            whileHover={{ rotate: 360 }}
-            transition={{ duration: 0.5 }}
-            className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white"
-          >
-            <FileText className="w-5 h-5" />
-          </motion.div>
-          <span className="font-bold text-lg text-gray-900">DocuExtract</span>
-        </div>
-
-        <nav className="space-y-1 mb-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Menu</p>
-          {navItems.map(item => (
-            <motion.button
-              key={item.id}
-              whileHover={{ x: 4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === item.id 
-                  ? 'bg-indigo-50 text-indigo-600' 
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.label}
-            </motion.button>
-          ))}
-        </nav>
-
-        <div className="mt-auto pt-6 border-t border-gray-100 space-y-1">
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-            <Settings className="w-5 h-5" />
-            Settings
-          </button>
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-            <HelpCircle className="w-5 h-5" />
-            Help & Support
-          </button>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            Logout
-          </button>
-        </div>
-      </aside>
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab as TabType)}
+        onLogout={handleLogout}
+      />
 
       {/* Main Content */}
-      <main className="flex-1 ml-60 p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <motion.h1 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              key={activeTab}
-              className="text-2xl font-bold text-gray-900"
-            >
-              {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'upload' && 'Upload Documents'}
-              {activeTab === 'documents' && 'Documents'}
-              {activeTab === 'metrics' && 'Metrics & Analytics'}
-            </motion.h1>
-            <p className="text-gray-500 mt-1">
-              {activeTab === 'dashboard' && 'Overview of your document processing'}
-              {activeTab === 'upload' && 'Upload PDFs for AI-powered data extraction'}
-              {activeTab === 'documents' && 'View and manage extracted data'}
-              {activeTab === 'metrics' && 'Track costs and performance'}
-            </p>
+      <main 
+        className="flex-1 p-6 overflow-y-auto"
+        style={{ marginLeft: 'var(--sidebar-width)', marginRight: showNotifications ? '280px' : '0' }}
+      >
+        {/* Top Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="search-bar" style={{ width: '320px' }}>
+              <Search className="w-4 h-4 text-[var(--color-text-muted)]" />
+              <input type="text" placeholder="Search" />
+              <div className="search-shortcut">⌘/</div>
+            </div>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={fetchDocuments}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </motion.button>
+          
+          <div className="flex items-center gap-3">
+            <button className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors">
+              <Sun className="w-5 h-5 text-[var(--color-text-secondary)]" />
+            </button>
+            <button className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors">
+              <Bell className="w-5 h-5 text-[var(--color-text-secondary)]" />
+            </button>
+            <button
+              onClick={fetchDocuments}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-primary)] transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Tab Content */}
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
           >
             {activeTab === 'dashboard' && (
-              <motion.div 
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="space-y-6"
-              >
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <motion.div variants={itemVariants} className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-5 text-white shadow-lg">
-                    <p className="text-indigo-100 text-sm font-medium">Total Documents</p>
-                    <p className="text-3xl font-bold mt-2">{totalDocuments}</p>
-                    <p className="text-indigo-200 text-sm mt-2">All time</p>
-                  </motion.div>
-                  <motion.div variants={itemVariants} className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white shadow-lg">
-                    <p className="text-emerald-100 text-sm font-medium">Completed</p>
-                    <p className="text-3xl font-bold mt-2">{completedDocuments}</p>
-                    <p className="text-emerald-200 text-sm mt-2">
-                      {totalDocuments > 0 ? Math.round((completedDocuments / totalDocuments) * 100) : 0}% success rate
-                    </p>
-                  </motion.div>
-                  <motion.div variants={itemVariants} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-                    <p className="text-gray-500 text-sm font-medium">Pending</p>
-                    <p className="text-3xl font-bold mt-2 text-gray-900">{pendingDocuments}</p>
-                    <p className="text-gray-400 text-sm mt-2">In queue</p>
-                  </motion.div>
-                  <motion.div variants={itemVariants} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-                    <p className="text-gray-500 text-sm font-medium">Failed</p>
-                    <p className="text-3xl font-bold mt-2 text-gray-900">{failedDocuments}</p>
-                    <p className={`text-sm mt-2 ${failedDocuments > 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                      {failedDocuments > 0 ? 'Needs attention' : 'All good'}
-                    </p>
-                  </motion.div>
+              <div className="space-y-6">
+                {/* Header */}
+                <div>
+                  <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">eCommerce</h1>
                 </div>
 
-                {/* Cost Summary */}
-                {stats.costSummary && (
-                  <motion.div variants={itemVariants} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Summary</h3>
-                    <div className="grid grid-cols-3 gap-6">
-                      <div>
-                        <p className="text-gray-500 text-sm">Total Cost</p>
-                        <p className="text-2xl font-bold text-gray-900">${stats.costSummary.totalCost.toFixed(4)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-sm">Avg. per Document</p>
-                        <p className="text-2xl font-bold text-gray-900">${stats.costSummary.averageCostPerDocument.toFixed(6)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-sm">Batch Savings</p>
-                        <p className="text-2xl font-bold text-emerald-600">${stats.costSummary.batchSavings.toFixed(4)}</p>
+                {/* Stat Cards - Top Row */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="stat-card stat-card--blue">
+                    <p className="text-sm font-medium text-[var(--stat-blue-text)]">Documents</p>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-2xl font-bold text-[var(--color-text-primary)]">{totalDocuments.toLocaleString()}</span>
+                      <span className="text-xs text-green-600 flex items-center gap-0.5">
+                        <TrendingUp className="w-3 h-3" />
+                        +11.01%
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="stat-card" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                    <p className="text-sm font-medium text-[var(--color-text-secondary)]">Completed</p>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-2xl font-bold text-[var(--color-text-primary)]">{completedDocuments.toLocaleString()}</span>
+                      <span className="text-xs text-red-500 flex items-center gap-0.5">
+                        <TrendingDown className="w-3 h-3" />
+                        -0.03%
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="stat-card stat-card--blue">
+                    <p className="text-sm font-medium text-[var(--stat-blue-text)]">Success Rate</p>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-2xl font-bold text-[var(--color-text-primary)]">{successRate}%</span>
+                      <span className="text-xs text-green-600 flex items-center gap-0.5">
+                        <TrendingUp className="w-3 h-3" />
+                        +15.03%
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="stat-card" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                    <p className="text-sm font-medium text-[var(--color-text-secondary)]">Processing</p>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-2xl font-bold text-[var(--color-text-primary)]">{pendingDocuments}</span>
+                      <span className="text-xs text-green-600 flex items-center gap-0.5">
+                        <TrendingUp className="w-3 h-3" />
+                        +6.08%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Processing Progress Chart */}
+                  <div className="chart-container">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-[var(--color-text-primary)]">Processing Status</h3>
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                          Completed {completedDocuments}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                          Pending {pendingDocuments}
+                        </span>
                       </div>
                     </div>
-                  </motion.div>
-                )}
+                    <div className="h-32 flex items-end gap-2">
+                      {/* Simple bar chart visualization */}
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, i) => (
+                        <div key={month} className="flex-1 flex flex-col items-center gap-1">
+                          <div 
+                            className="w-full bg-gray-200 rounded-t"
+                            style={{ height: `${20 + Math.random() * 80}%` }}
+                          >
+                            <div 
+                              className="w-full bg-[var(--stat-blue-text)] rounded-t"
+                              style={{ height: `${50 + Math.random() * 50}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-[var(--color-text-muted)]">{month}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-                {/* Recent Activity */}
-                <motion.div variants={itemVariants} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                  {/* Cost Breakdown */}
+                  <div className="chart-container">
+                    <h3 className="font-semibold text-[var(--color-text-primary)] mb-4">Cost by Model</h3>
+                    {stats.costSummary ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[var(--color-text-secondary)]">Total Cost</span>
+                          <span className="font-medium">${stats.costSummary.totalCost.toFixed(4)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[var(--color-text-secondary)]">Avg per Document</span>
+                          <span className="font-medium">${stats.costSummary.averageCostPerDocument.toFixed(6)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[var(--color-text-secondary)]">Batch Savings</span>
+                          <span className="font-medium text-green-600">${stats.costSummary.batchSavings.toFixed(4)}</span>
+                        </div>
+                        {Object.entries(stats.costSummary.costByModel).map(([model, cost]) => (
+                          <div key={model} className="flex justify-between text-sm">
+                            <span className="text-[var(--color-text-secondary)]">{model.split('-').slice(-2).join('-')}</span>
+                            <span className="font-medium">${cost.toFixed(4)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[var(--color-text-muted)] text-sm">No cost data available</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent Documents */}
+                <div className="chart-container">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Recent Documents</h3>
+                    <h3 className="font-semibold text-[var(--color-text-primary)]">Recent Documents</h3>
                     <button 
                       onClick={() => setActiveTab('documents')}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                      className="text-sm font-medium text-[var(--stat-blue-text)] hover:underline"
                     >
                       View All
                     </button>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {documents.slice(0, 5).map(doc => (
-                      <div key={doc.id} className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
+                      <div key={doc.id} className="flex items-center gap-3 py-2 border-b border-[var(--color-border-light)] last:border-0">
                         <div 
-                          className={`w-2 h-2 rounded-full mt-2 ${
+                          className={`w-2 h-2 rounded-full ${
                             doc.status === 'COMPLETED' ? 'bg-emerald-500' :
                             doc.status === 'FAILED' ? 'bg-red-500' : 'bg-amber-500'
                           }`}
                         />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{doc.originalName}</p>
-                          <p className="text-xs text-gray-500">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{doc.originalName}</p>
+                          <p className="text-xs text-[var(--color-text-muted)]">
                             {doc.status} • {new Date(doc.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
                     ))}
                     {documents.length === 0 && (
-                      <p className="text-gray-500 py-4 text-center">
+                      <p className="text-[var(--color-text-muted)] py-4 text-center text-sm">
                         No documents yet. Upload some PDFs to get started.
                       </p>
                     )}
                   </div>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
             )}
 
             {activeTab === 'upload' && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="max-w-2xl mx-auto"
-              >
+              <div className="max-w-2xl mx-auto">
+                <h1 className="text-xl font-semibold text-[var(--color-text-primary)] mb-6">Upload Documents</h1>
                 <UploadManager onUploadComplete={handleUploadComplete} />
-              </motion.div>
+              </div>
             )}
 
             {activeTab === 'documents' && (
               <div className="space-y-4">
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Documents</h1>
                   <ExportControls data={documents} />
                 </div>
                 <DataTable 
@@ -347,17 +345,36 @@ export default function Dashboard() {
             )}
 
             {activeTab === 'metrics' && (
-              <MetricsPanel
-                totalDocuments={totalDocuments}
-                completedDocuments={completedDocuments}
-                failedDocuments={failedDocuments}
-                pendingDocuments={pendingDocuments}
-                costSummary={stats.costSummary}
-              />
+              <div>
+                <h1 className="text-xl font-semibold text-[var(--color-text-primary)] mb-6">Metrics & Analytics</h1>
+                <MetricsPanel
+                  totalDocuments={totalDocuments}
+                  completedDocuments={completedDocuments}
+                  failedDocuments={failedDocuments}
+                  pendingDocuments={pendingDocuments}
+                  costSummary={stats.costSummary}
+                />
+              </div>
+            )}
+
+            {/* Placeholder pages */}
+            {['profile', 'account', 'corporate', 'blog', 'social'].includes(activeTab) && (
+              <div className="flex items-center justify-center h-64">
+                <p className="text-[var(--color-text-muted)]">
+                  {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} page coming soon...
+                </p>
+              </div>
             )}
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Right Panel - Notifications */}
+      {showNotifications && (
+        <div className="fixed right-0 top-0 h-screen">
+          <NotificationsPanel />
+        </div>
+      )}
     </div>
   );
 }

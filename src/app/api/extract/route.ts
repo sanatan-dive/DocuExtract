@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { extractDocument } from '@/lib/extraction/extractionService';
 import { isConfigured } from '@/lib/extraction/geminiClient';
 import prisma from '@/lib/db';
+import { documentQueue } from '@/lib/queue/processingQueue';
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +76,22 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Bulk extraction endpoint
+// Register the queue processor (runs once on module load)
+let processorRegistered = false;
+function ensureProcessorRegistered() {
+  if (processorRegistered) return;
+  processorRegistered = true;
+
+  documentQueue.process(async (job) => {
+    const { documentId, options } = job.data;
+    return await extractDocument(documentId, {
+      forceModel: options?.forceModel as import('@/lib/extraction/geminiClient').ModelType | undefined,
+      useBatchApi: options?.useBatchApi,
+    });
+  });
+}
+
+// Bulk extraction endpoint - uses parallel queue with batch tracking
 export async function PUT(request: NextRequest) {
   try {
     if (!isConfigured()) {
@@ -95,49 +111,93 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check for Batch API threshold (> 100 documents)
+    // Ensure the processor is registered
+    ensureProcessorRegistered();
+
+    // Use batch processing for >100 documents
     const useBatchApi = documentIds.length > 100;
-    
-    // Process documents
-    const results: { documentId: string; success: boolean; error?: string }[] = [];
 
-    // In a real implementation with Gemini Batch API:
-    // 1. We would create a batch job (asynchronous)
-    // 2. Set status to 'QUEUED_FOR_BATCH'
-    // 3. Poll for results later
-    //
-    // For this implementation, we simulate it by processing with the 'useBatchApi' flag
-    // which applies the 50% cost discount.
+    // Create a BatchJob entry in the database for tracking
+    const batchJob = await prisma.batchJob.create({
+      data: {
+        status: 'PROCESSING',
+        documentCount: documentIds.length,
+        submittedAt: new Date(),
+      },
+    });
 
+    // Queue all documents for parallel processing
     for (const documentId of documentIds) {
-      try {
-        if (useBatchApi) {
-             // Mark as queued for batch first to update UI
-             await prisma.document.update({
-                 where: { id: documentId },
-                 data: { status: 'QUEUED_FOR_BATCH' }
-             });
-        }
+      // Update document status
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: useBatchApi ? 'QUEUED_FOR_BATCH' : 'PENDING' },
+      }).catch(() => {
+        // Document may not exist, skip
+      });
 
-        await extractDocument(documentId, { useBatchApi });
-        results.push({ documentId, success: true });
-      } catch (error) {
-        results.push({
-          documentId,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
+      // Add to processing queue
+      documentQueue.add(documentId, {
+        documentId,
+        options: { useBatchApi },
+      });
     }
 
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
+    // For smaller batches, wait for completion
+    // For larger batches, return immediately with job ID
+    if (documentIds.length <= 10) {
+      // Wait for all to complete (with timeout)
+      const timeout = 60000; // 60 seconds
+      const startTime = Date.now();
 
-    return NextResponse.json({
-      success: true,
-      message: `Processed ${successful} documents, ${failed} failed`,
-      results,
-    });
+      while (Date.now() - startTime < timeout) {
+        const stats = documentQueue.getStats();
+        if (stats.pending === 0 && stats.processing === 0) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Collect results
+      const results = documentIds.map(docId => {
+        const job = documentQueue.getJob(docId);
+        return {
+          documentId: docId,
+          success: job?.status === 'completed',
+          error: job?.error,
+        };
+      });
+
+      // Update batch job status
+      await prisma.batchJob.update({
+        where: { id: batchJob.id },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      });
+
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
+      return NextResponse.json({
+        success: true,
+        message: `Processed ${successful} documents, ${failed} failed`,
+        batchJobId: batchJob.id,
+        results,
+      });
+    }
+
+    // For large batches, return 202 Accepted immediately
+    return NextResponse.json(
+      {
+        success: true,
+        message: `Queued ${documentIds.length} documents for processing`,
+        batchJobId: batchJob.id,
+        queueStats: documentQueue.getStats(),
+      },
+      { status: 202 }
+    );
 
   } catch (error) {
     console.error('Bulk extraction error:', error);
@@ -147,3 +207,4 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+
