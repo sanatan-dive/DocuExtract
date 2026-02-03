@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { X, Save, RotateCcw, Zap, Cpu } from 'lucide-react';
-import { DocumentWithRelations, ExtractedDataType } from '@/types';
+import React, { useState } from "react";
+import { X, Save, RotateCcw, Zap, Cpu } from "lucide-react";
+import { DocumentWithRelations, ExtractedDataType } from "@/types";
 
 interface DocumentDetailModalProps {
   document: DocumentWithRelations;
@@ -11,15 +11,23 @@ interface DocumentDetailModalProps {
   onReExtract?: (id: string, forceModel?: string) => Promise<void>;
 }
 
-export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: DocumentDetailModalProps) {
+export function DocumentDetailModal({
+  document,
+  onClose,
+  onSave,
+  onReExtract,
+}: DocumentDetailModalProps) {
   const [formData, setFormData] = useState<Partial<ExtractedDataType>>(
-    document.extractedData || {}
+    document.extractedData || {},
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isReExtracting, setIsReExtracting] = useState(false);
 
   const handleChange = (field: keyof ExtractedDataType, value: any) => {
-    setFormData((prev: Partial<ExtractedDataType>) => ({ ...prev, [field]: value }));
+    setFormData((prev: Partial<ExtractedDataType>) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   const handleSave = async () => {
@@ -28,7 +36,7 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
       await onSave(document.id, formData);
       onClose();
     } catch (error) {
-      console.error('Failed to save:', error);
+      console.error("Failed to save:", error);
     } finally {
       setIsSaving(false);
     }
@@ -41,25 +49,32 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
       await onReExtract(document.id, forceModel);
       onClose();
     } catch (error) {
-      console.error('Re-extraction failed:', error);
+      console.error("Re-extraction failed:", error);
     } finally {
       setIsReExtracting(false);
     }
   };
 
-  const confidenceScores = document.extractedData?.confidenceScores as Record<string, number> | undefined;
+  const confidenceScores = document.extractedData?.confidenceScores as
+    | Record<string, number>
+    | undefined;
 
   const getConfidenceClass = (field: string) => {
     const score = confidenceScores?.[field];
-    if (score === undefined) return 'border-gray-200';
-    if (score > 0.8) return 'border-emerald-500';
-    if (score > 0.5) return 'border-amber-500';
-    return 'border-red-500';
+    if (score === undefined) return "border-gray-200";
+    if (score > 0.8) return "border-emerald-500";
+    if (score > 0.5) return "border-amber-500";
+    return "border-red-500";
   };
 
   const pdfUrl = `/api/file?name=${encodeURIComponent(document.fileName)}`;
   const overallConfidence = document.extractedData?.overallConfidence || 0;
-  const confidenceColorClass = overallConfidence > 0.8 ? 'text-emerald-600' : overallConfidence > 0.5 ? 'text-amber-600' : 'text-red-600';
+  const confidenceColorClass =
+    overallConfidence > 0.8
+      ? "text-emerald-600"
+      : overallConfidence > 0.5
+        ? "text-amber-600"
+        : "text-red-600";
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -67,9 +82,13 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Review Document</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Review Document
+            </h2>
             <p className="text-sm text-gray-500">
-              {document.originalName} • {document.classification || 'Unknown Type'} • Model: {document.modelUsed || 'N/A'}
+              {document.originalName} •{" "}
+              {document.classification || "Unknown Type"} • Model:{" "}
+              {document.modelUsed || "N/A"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -79,21 +98,29 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
                 <button
                   disabled={isReExtracting}
                   className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  onClick={() => handleReExtract()}
+                  onClick={() =>
+                    handleReExtract(
+                      formData.handwritten
+                        ? "gemini-3-pro-preview"
+                        : "gemini-3-flash-preview",
+                    )
+                  }
                 >
-                  <RotateCcw className={`w-4 h-4 ${isReExtracting ? 'animate-spin' : ''}`} />
-                  {isReExtracting ? 'Re-Extracting...' : 'Re-Extract'}
+                  <RotateCcw
+                    className={`w-4 h-4 ${isReExtracting ? "animate-spin" : ""}`}
+                  />
+                  {isReExtracting ? "Re-Extracting..." : "Re-Extract"}
                 </button>
                 <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                  <button 
-                    onClick={() => handleReExtract('gemini-2.5-flash')}
+                  <button
+                    onClick={() => handleReExtract("gemini-3-flash-preview")}
                     className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
                   >
                     <Zap className="w-3 h-3 text-amber-500" />
                     Force Flash (Fast)
                   </button>
-                  <button 
-                    onClick={() => handleReExtract('gemini-2.5-pro')}
+                  <button
+                    onClick={() => handleReExtract("gemini-3-pro-preview")}
                     className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
                   >
                     <Cpu className="w-3 h-3 text-indigo-500" />
@@ -109,7 +136,7 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save & Verify'}
+              {isSaving ? "Saving..." : "Save & Verify"}
             </button>
             <button
               onClick={onClose}
@@ -124,11 +151,11 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
         <div className="flex flex-1 overflow-hidden">
           {/* PDF View (Left) */}
           <div className="w-1/2 bg-gray-100 border-r border-gray-200 overflow-hidden">
-            <iframe 
+            <iframe
               src={pdfUrl}
               className="w-full h-full"
               title="PDF Preview"
-              style={{ border: 'none' }}
+              style={{ border: "none" }}
             />
           </div>
 
@@ -137,7 +164,7 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">
               Extracted Data
             </h3>
-            
+
             {/* Confidence Summary */}
             <div className="mb-6 p-3 rounded-lg bg-gray-50">
               <div className="flex items-center justify-between text-sm">
@@ -147,73 +174,73 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
                 </span>
               </div>
             </div>
-            
+
             <div className="space-y-4">
-              <FormField 
-                label="Name" 
-                value={formData.name as string} 
-                onChange={v => handleChange('name', v)}
-                confidenceClass={getConfidenceClass('name')}
+              <FormField
+                label="Name"
+                value={formData.name as string}
+                onChange={(v) => handleChange("name", v)}
+                confidenceClass={getConfidenceClass("name")}
               />
               <div className="grid grid-cols-2 gap-4">
-                 <FormField 
-                  label="Date" 
-                  value={formData.date as string} 
-                  onChange={v => handleChange('date', v)}
-                  confidenceClass={getConfidenceClass('date')}
+                <FormField
+                  label="Date"
+                  value={formData.date as string}
+                  onChange={(v) => handleChange("date", v)}
+                  confidenceClass={getConfidenceClass("date")}
                 />
-                 <FormField 
-                  label="Time" 
-                  value={formData.time as string} 
-                  onChange={v => handleChange('time', v)}
-                  confidenceClass={getConfidenceClass('time')}
+                <FormField
+                  label="Time"
+                  value={formData.time as string}
+                  onChange={(v) => handleChange("time", v)}
+                  confidenceClass={getConfidenceClass("time")}
                 />
               </div>
-              <FormField 
-                label="Address" 
-                value={formData.address as string} 
-                onChange={v => handleChange('address', v)}
-                confidenceClass={getConfidenceClass('address')}
+              <FormField
+                label="Address"
+                value={formData.address as string}
+                onChange={(v) => handleChange("address", v)}
+                confidenceClass={getConfidenceClass("address")}
               />
               <div className="grid grid-cols-2 gap-4">
-                <FormField 
-                  label="Postal Code" 
-                  value={formData.postalcode as string} 
-                  onChange={v => handleChange('postalcode', v)}
-                  confidenceClass={getConfidenceClass('postalcode')}
+                <FormField
+                  label="Postal Code"
+                  value={formData.postalcode as string}
+                  onChange={(v) => handleChange("postalcode", v)}
+                  confidenceClass={getConfidenceClass("postalcode")}
                 />
-                <FormField 
-                  label="City" 
-                  value={formData.city as string} 
-                  onChange={v => handleChange('city', v)}
-                  confidenceClass={getConfidenceClass('city')}
+                <FormField
+                  label="City"
+                  value={formData.city as string}
+                  onChange={(v) => handleChange("city", v)}
+                  confidenceClass={getConfidenceClass("city")}
                 />
               </div>
-               <FormField 
-                  label="Date of Birth" 
-                  value={formData.birthday as string} 
-                  onChange={v => handleChange('birthday', v)}
-                  confidenceClass={getConfidenceClass('birthday')}
-                />
-              
+              <FormField
+                label="Date of Birth"
+                value={formData.birthday as string}
+                onChange={(v) => handleChange("birthday", v)}
+                confidenceClass={getConfidenceClass("birthday")}
+              />
+
               <div className="pt-4 border-t border-gray-100 mt-6">
                 <div className="flex items-center gap-4 mb-2">
-                  <Checkbox 
-                    label="Handwritten" 
-                    checked={formData.handwritten as boolean} 
-                    onChange={v => handleChange('handwritten', v)}
+                  <Checkbox
+                    label="Handwritten"
+                    checked={formData.handwritten as boolean}
+                    onChange={(v) => handleChange("handwritten", v)}
                   />
-                  <Checkbox 
-                    label="Signed" 
-                    checked={formData.signed as boolean} 
-                    onChange={v => handleChange('signed', v)}
+                  <Checkbox
+                    label="Signed"
+                    checked={formData.signed as boolean}
+                    onChange={(v) => handleChange("signed", v)}
                   />
                 </div>
-                 <FormField 
-                  label="Stamp Detected" 
-                  value={formData.stamp as string} 
-                  onChange={v => handleChange('stamp', v)}
-                  confidenceClass={getConfidenceClass('stamp')}
+                <FormField
+                  label="Stamp Detected"
+                  value={formData.stamp as string}
+                  onChange={(v) => handleChange("stamp", v)}
+                  confidenceClass={getConfidenceClass("stamp")}
                 />
               </div>
             </div>
@@ -224,11 +251,16 @@ export function DocumentDetailModal({ document, onClose, onSave, onReExtract }: 
   );
 }
 
-function FormField({ label, value, onChange, confidenceClass }: { 
-  label: string, 
-  value: string, 
-  onChange: (val: string) => void,
-  confidenceClass: string 
+function FormField({
+  label,
+  value,
+  onChange,
+  confidenceClass,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  confidenceClass: string;
 }) {
   return (
     <div className="relative">
@@ -238,8 +270,8 @@ function FormField({ label, value, onChange, confidenceClass }: {
       <div className="relative">
         <input
           type="text"
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
           className={`w-full px-3 py-2.5 bg-white border-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${confidenceClass}`}
         />
       </div>
@@ -247,13 +279,21 @@ function FormField({ label, value, onChange, confidenceClass }: {
   );
 }
 
-function Checkbox({ label, checked, onChange }: { label: string, checked: boolean, onChange: (val: boolean) => void }) {
+function Checkbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (val: boolean) => void;
+}) {
   return (
     <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
-      <input 
-        type="checkbox" 
+      <input
+        type="checkbox"
         checked={checked || false}
-        onChange={e => onChange(e.target.checked)}
+        onChange={(e) => onChange(e.target.checked)}
         className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
       />
       {label}

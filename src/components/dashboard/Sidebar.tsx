@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from "react";
+import { motion } from "framer-motion";
 import {
   FileText,
   LayoutDashboard,
@@ -19,7 +19,7 @@ import {
   Building2,
   Newspaper,
   MessageSquare,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
@@ -34,30 +34,26 @@ interface NavItem {
 }
 
 export function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<string[]>(['dashboards']);
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    "dashboards",
+  ]);
 
   const toggleSection = (section: string) => {
-    setExpandedSections(prev =>
+    setExpandedSections((prev) =>
       prev.includes(section)
-        ? prev.filter(s => s !== section)
-        : [...prev, section]
+        ? prev.filter((s) => s !== section)
+        : [...prev, section],
     );
   };
 
   const mainNavItems: NavItem[] = [
-    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-    { id: 'upload', label: 'Upload', icon: FileUp },
-    { id: 'documents', label: 'Documents', icon: FolderOpen },
-    { id: 'metrics', label: 'Metrics', icon: BarChart3 },
+    { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+    { id: "upload", label: "Upload", icon: FileUp },
+    { id: "documents", label: "Documents", icon: FolderOpen },
+    { id: "metrics", label: "Metrics", icon: BarChart3 },
   ];
 
-  const pagesNavItems: NavItem[] = [
-    { id: 'profile', label: 'User Profile', icon: User },
-    { id: 'account', label: 'Account', icon: Settings },
-    { id: 'corporate', label: 'Corporate', icon: Building2 },
-    { id: 'blog', label: 'Blog', icon: Newspaper },
-    { id: 'social', label: 'Social', icon: MessageSquare },
-  ];
+  /* Pages nav items removed */
 
   return (
     <aside className="sidebar flex flex-col">
@@ -70,7 +66,9 @@ export function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
         >
           <FileText className="w-5 h-5" />
         </motion.div>
-        <span className="font-bold text-lg text-[var(--color-text-primary)]">DocuExtract</span>
+        <span className="font-bold text-lg text-[var(--color-text-primary)]">
+          DocuExtract
+        </span>
       </div>
 
       {/* Favorites / Recently */}
@@ -90,31 +88,31 @@ export function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
         {/* Dashboards Section */}
         <div>
           <button
-            onClick={() => toggleSection('dashboards')}
+            onClick={() => toggleSection("dashboards")}
             className="sidebar-section-title w-full flex items-center justify-between"
           >
             Dashboards
-            {expandedSections.includes('dashboards') ? (
+            {expandedSections.includes("dashboards") ? (
               <ChevronDown className="w-4 h-4" />
             ) : (
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-          {expandedSections.includes('dashboards') && (
+          {expandedSections.includes("dashboards") && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
+              animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="space-y-0.5 mt-1"
             >
-              {mainNavItems.map(item => (
+              {mainNavItems.map((item) => (
                 <motion.button
                   key={item.id}
                   whileHover={{ x: 2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onTabChange(item.id)}
                   className={`sidebar-nav-item w-full ${
-                    activeTab === item.id ? 'sidebar-nav-item--active' : ''
+                    activeTab === item.id ? "sidebar-nav-item--active" : ""
                   }`}
                 >
                   <item.icon className="w-5 h-5" />
@@ -125,42 +123,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
           )}
         </div>
 
-        {/* Pages Section */}
-        <div>
-          <button
-            onClick={() => toggleSection('pages')}
-            className="sidebar-section-title w-full flex items-center justify-between"
-          >
-            Pages
-            {expandedSections.includes('pages') ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
-          </button>
-          {expandedSections.includes('pages') && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="space-y-0.5 mt-1"
-            >
-              {pagesNavItems.map(item => (
-                <motion.button
-                  key={item.id}
-                  whileHover={{ x: 2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => onTabChange(item.id)}
-                  className={`sidebar-nav-item w-full ${
-                    activeTab === item.id ? 'sidebar-nav-item--active' : ''
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.label}
-                </motion.button>
-              ))}
-            </motion.div>
-          )}
-        </div>
+        {/* Pages Section Removed */}
       </nav>
 
       {/* Bottom Actions */}
